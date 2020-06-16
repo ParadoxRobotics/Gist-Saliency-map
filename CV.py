@@ -59,6 +59,46 @@ def colorMap(img):
     colorFeature = [CenterSurroundDiff(RGPyr), CenterSurroundDiff()]
     return colorFeature
 
+# get gabor filter map
+def gaborMap(img, filters):
+    # create a gaussian pyramid with the intensity
+    intensityPyr = gaussianImagePyramid(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
+    # create gabor feature map
+    gaborPyr_0 = [ np.empty((1,1)), np.empty((1,1)) ]
+    gaborPyr_45 = [ np.empty((1,1)), np.empty((1,1)) ]
+    gaborPyr_90 = [ np.empty((1,1)), np.empty((1,1)) ]
+    gaborPyr_135 = [ np.empty((1,1)), np.empty((1,1)) ]
+    # find gabor edge in the intensity feature pyramid
+    for i in range(2,9)
+        gaborPyr_0.append(cv2.filter2D(intensityPyr[i], cv2.CV_32F, filters[0]))
+        gaborPyr_45.append(cv2.filter2D(intensityPyr[i], cv2.CV_32F, filters[1]))
+        gaborPyr_90.append(cv2.filter2D(intensityPyr[i], cv2.CV_32F, filters[2]))
+        gaborPyr_135.append(cv2.filter2D(intensityPyr[i], cv2.CV_32F, filters[3]))
+    # perform CSD on every edge orientation feature pyramid
+    gaborFeature_0 = CenterSurroundDiff(gaborPyr_0)
+    gaborFeature_45 = CenterSurroundDiff(gaborPyr_45)
+    gaborFeature_90 = CenterSurroundDiff(gaborPyr_90)
+    gaborFeature_135 = CenterSurroundDiff(gaborPyr_135)
+    return [gaborFeature_0, gaborFeature_45, gaborFeature_90, gaborFeature_135]
+
+# get Optical flow feature map
+def OpticalFlow(lastImg, curImg):
+    # calculate dense optical flow with the last and current image
+    OF = cv2.calcOpticalFlowFarneback(prev=lastImg,
+                                      next=curImg,
+                                      pyr_scale=0.5,
+                                      levels=3,
+                                      winsize=15,
+                                      iterations=3,
+                                      poly_n=5,
+                                      poly_sigma=1.2,
+                                      flags=0,flow=None)
+    OFXPyr = gaussianImagePyramid(OF[...,0])
+    OFYPyr = gaussianImagePyramid(OF[...,1])
+    OFFeatureX = CenterSurroundDiff(OFXPyr)
+    OFFeatureY = CenterSurroundDiff(OFYPyr)
+    return [OFFeatureX, OFFeatureY]
+
 # Gabor filter th = [0°,45°,90°,135°]
 GaborKernel_0 = [\
     [ 1.85212E-06, 1.28181E-05, -0.000350433, -0.000136537, 0.002010422, -0.000136537, -0.000350433, 1.28181E-05, 1.85212E-06 ],\
@@ -107,30 +147,3 @@ GaborKernel_135 = [\
 
 # filter bank
 filters = [GaborKernel_0, GaborKernel_45, GaborKernel_90, GaborKernel_135]
-
-# get gabor filter map
-def gaborMap(img, filters):
-    # create a gaussian pyramid with the intensity
-    intensityPyr = gaussianImagePyramid(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
-    # create gabor feature map
-    gaborPyr_0 = [ np.empty((1,1)), np.empty((1,1)) ]
-    gaborPyr_45 = [ np.empty((1,1)), np.empty((1,1)) ]
-    gaborPyr_90 = [ np.empty((1,1)), np.empty((1,1)) ]
-    gaborPyr_135 = [ np.empty((1,1)), np.empty((1,1)) ]
-    # find gabor edge in the intensity feature pyramid
-    for i in range(2,9)
-        gaborPyr_0.append(cv2.filter2D(intensityPyr[i], cv2.CV_32F, filters[0]))
-        gaborPyr_45.append(cv2.filter2D(intensityPyr[i], cv2.CV_32F, filters[1]))
-        gaborPyr_90.append(cv2.filter2D(intensityPyr[i], cv2.CV_32F, filters[2]))
-        gaborPyr_135.append(cv2.filter2D(intensityPyr[i], cv2.CV_32F, filters[3]))
-    # perform CSD on every edge orientation feature pyramid
-    gaborFeature_0 = CenterSurroundDiff(gaborPyr_0)
-    gaborFeature_45 = CenterSurroundDiff(gaborPyr_45)
-    gaborFeature_90 = CenterSurroundDiff(gaborPyr_90)
-    gaborFeature_135 = CenterSurroundDiff(gaborPyr_135)
-    return [gaborFeature_0, gaborFeature_45, gaborFeature_90, gaborFeature_135]
-
-# get Optical flow feature map
-def OpticalFlow(lastImg, curImg):
-    # calculate optical flow the last and current image
-    
