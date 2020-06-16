@@ -69,7 +69,7 @@ def gaborMap(img, filters):
     gaborPyr_90 = [ np.empty((1,1)), np.empty((1,1)) ]
     gaborPyr_135 = [ np.empty((1,1)), np.empty((1,1)) ]
     # find gabor edge in the intensity feature pyramid
-    for i in range(2,9)
+    for i in range(2,9):
         gaborPyr_0.append(cv2.filter2D(intensityPyr[i], cv2.CV_32F, filters[0]))
         gaborPyr_45.append(cv2.filter2D(intensityPyr[i], cv2.CV_32F, filters[1]))
         gaborPyr_90.append(cv2.filter2D(intensityPyr[i], cv2.CV_32F, filters[2]))
@@ -83,6 +83,11 @@ def gaborMap(img, filters):
 
 # get Optical flow feature map
 def OpticalFlow(lastImg, curImg):
+    # convert to grayscale
+    lastImg = cv2.cvtColor(lastImg, cv2.COLOR_BGR2GRAY)
+    lastImg = np.uint8(255 * lastImg)
+    curImg = cv2.cvtColor(curImg, cv2.COLOR_BGR2GRAY)
+    curImg = np.uint8(255 * curImg)
     # calculate dense optical flow with the last and current image
     OF = cv2.calcOpticalFlowFarneback(prev=lastImg,
                                       next=curImg,
@@ -98,6 +103,8 @@ def OpticalFlow(lastImg, curImg):
     OFFeatureX = CenterSurroundDiff(OFXPyr)
     OFFeatureY = CenterSurroundDiff(OFYPyr)
     return [OFFeatureX, OFFeatureY]
+
+# normalization
 
 # Gabor filter th = [0°,45°,90°,135°]
 GaborKernel_0 = [\
