@@ -30,50 +30,6 @@ def CenterSurroundDiff(featureMap):
         CSDPyr.append(cv2.absdiff(featureMap[i], ResMp))
     return CSDPyr
 
-# normalization for conspicuity map
-def valueNorm(featureMap):
-    # find global maximal/minimal value in the feature map
-    minVal, maxVal, minLoc, maxLoc = cv2.minMaxLoc(featureMap)
-    if maxVal != minVal:
-        normalizedMap = featureMap/(maxVal-minVal) + minVal/(minVal-maxVal)
-    else:
-        normalizedMap = featureMap-minVal
-    return normalizedMap
-
-# compute average of local maxima in the feature map
-def LocalAvgMaxima(featureMap, stepSize):
-    # feature map shape
-    FMHeight = featureMap.shape[1]
-    FMWidth = featureMap.shape[0]
-    # local max and mean init
-    nbLoc = 0
-    locMeanMax = 0
-    # iterate over the whole feature map
-    for i in range(0, FMHeight-stepSize, FMHeight):
-        for j in range(0, FMWidth-stepSize, FMWidth):
-            # get local image patch
-            localPatch = featureMap[j:j+stepSize, i:i+stepSize]
-            # calculate local min/max value in the local patch
-            minVal, maxVal, minLoc, maxLoc = cv2.minMaxLoc(localPatch)
-            locMeanMax += maxVal
-            nbLoc += 1
-    return locMeanMax / nbLoc
-
-# calculate saliency for a feature map in a feature pyramid
-def saliencyNorm(featureMap, stepSize):
-    normalizedMap = valueNorm(featureMap)
-    localAvgMax = LocalAvgMaxima(normalizedMap, stepSize)
-    NormCoeff = (1-localAvgMax)*(1-localAvgMax)
-    return featureMap * NormCoeff
-
-# calculate saliency for every feature map in a feature pyramid + resize
-def ApplySaliencyNorm(featureMap, stepSize, inputSize):
-    NormalizedFeatureMap = []
-    for i in range(0,6):
-        print(i)
-        salientMap = saliencyNorm(featureMap[i], stepSize)
-        NormalizedFeatureMap.append(cv2.resize(salientMap, inputSize))
-    return NormalizedFeatureMap
 
 # get intensity feature map (grayscaling)
 def intensityMap(img):
@@ -159,6 +115,50 @@ def flickerMap(lastImg, curImg):
     flickerFeature = CenterSurroundDiff(flickerPyr)
     return flickerFeature
 
+# normalization for conspicuity map
+def valueNorm(featureMap):
+    # find global maximal/minimal value in the feature map
+    minVal, maxVal, minLoc, maxLoc = cv2.minMaxLoc(featureMap)
+    if maxVal != minVal:
+        normalizedMap = featureMap/(maxVal-minVal) + minVal/(minVal-maxVal)
+    else:
+        normalizedMap = featureMap-minVal
+    return normalizedMap
+
+# compute average of local maxima in the feature map
+def LocalAvgMaxima(featureMap, stepSize):
+    # feature map shape
+    FMHeight = featureMap.shape[1]
+    FMWidth = featureMap.shape[0]
+    # local max and mean init
+    nbLoc = 0
+    locMeanMax = 0
+    # iterate over the whole feature map
+    for i in range(0, FMHeight-stepSize, FMHeight):
+        for j in range(0, FMWidth-stepSize, FMWidth):
+            # get local image patch
+            localPatch = featureMap[i:i+stepSize, j:j+stepSize]
+            # calculate local min/max value in the local patch
+            minVal, maxVal, minLoc, maxLoc = cv2.minMaxLoc(localPatch)
+            locMeanMax += maxVal
+            nbLoc += 1
+    return locMeanMax / nbLoc
+
+# calculate saliency for a feature map in a feature pyramid
+def saliencyNorm(featureMap, stepSize):
+    normalizedMap = valueNorm(featureMap)
+    localAvgMax = LocalAvgMaxima(normalizedMap, stepSize)
+    NormCoeff = (1-localAvgMax)*(1-localAvgMax)
+    return featureMap * NormCoeff
+
+# calculate saliency for every feature map in a feature pyramid + resize
+def ApplySaliencyNorm(featureMap, stepSize, inputSize):
+    NormalizedFeatureMap = []
+    for i in range(0,6):
+        salientMap = saliencyNorm(featureMap[i], stepSize)
+        NormalizedFeatureMap.append(cv2.resize(salientMap, inputSize))
+    return NormalizedFeatureMap
+
 # get Intensity conspicuity
 def conspicuityIntensityMap(intensityFeature, stepSize, inputSize):
     ConsInt = ApplySaliencyNorm(intensityFeature, stepSize, inputSize)
@@ -177,10 +177,11 @@ def conspicuityColorMap(colorFeature, stepSize, inputSize):
 
 # get edge conspicuity
 def conspicuityEdgeMap(edgeFeature, stepSize, inputSize):
-    conspicuityEdge = np.zeros(inputSize)
+    conspicuityEdge = np.zeros((inputSize[1], inputSize[0]))
     for i in range (0,4):
         # extracting a conspicuity map for every angle
         ConspicuityEdgeTheta = ApplySaliencyNorm(edgeFeature[i], stepSize, inputSize)
+        ConspicuityEdgeTheta = sum(ConspicuityEdgeTheta)
         # renormalize
         ConspicuityEdgeTheta = saliencyNorm(ConspicuityEdgeTheta, stepSize)
         # accumulate for every angle
@@ -189,10 +190,18 @@ def conspicuityEdgeMap(edgeFeature, stepSize, inputSize):
 
 # get optical flow conspicuity
 def conspicuityOFMap(OFFeature, stepSize, inputSize):
-    return conspicuityOF
+    # calculate conspicuity for DX and DY feature pyramid
+    constDx = ApplySaliencyNorm(OFFeature[0], stepSize, inputSize)
+    conspicuityDx = sum(constDx)
+    constDy = ApplySaliencyNorm(OFFeature[1], stepSize, inputSize)
+    conspicuityDy = sum(constDy)
+    # merge the 2 conspicuity map
+    return conspicuityDx + conspicuityDy
 
 # get flicker conspicuity
 def conspicuityFlickerMap(flickerFeature, stepSize, inputSize):
+    ConsFlicker = ApplySaliencyNorm(flickerFeature, stepSize, inputSize)
+    conspicuityFlicker = sum(ConsFlicker)
     return conspicuityFlicker
 
 # Gabor filter th = [0°,45°,90°,135°]
@@ -238,11 +247,12 @@ GaborKernel_135 = [\
     [ -0.001028923, -0.013561362,  0.052928748,  0.460162150,  0.249959607, -0.302454279, -0.108372072, 0.000389916, 0.000744712 ],\
     [ -0.000279806,  0.002373205,  0.044837725,  0.052928748, -0.139178011, -0.108372072, 0.000847346, 0.003516954, 0.000132863 ],\
     [  2.25320E-05,  0.000925120,  0.002373205, -0.013561362, -0.022947700, 0.000389916, 0.003516954, 0.000288732, -9.04408E-06 ],\
-    [  4.04180E-06,  2.25320E-05, -0.000279806, -0.001028923,  3.79931E-05 , 0.000744712, 0.000132863, -9.04408E-06, -1.01551E-06 ]\
+    [  4.04180E-06,  2.25320E-05, -0.000279806, -0.001028923,  3.79931E-05, 0.000744712, 0.000132863, -9.04408E-06, -1.01551E-06 ]\
 ]
 
 # filter bank
 filters = [np.array(GaborKernel_0), np.array(GaborKernel_45), np.array(GaborKernel_90), np.array(GaborKernel_135)]
+
 
 # read images
 current_img = cv2.imread('im1.png')
@@ -261,11 +271,13 @@ OFFeature = OpticalFlowMap(last_img, current_img)
 # calculate flicker feature map
 flickerFeature = flickerMap(last_img, current_img)
 
-"""
 # calculate intensity conspicuity
 conspicuityIntensity = conspicuityIntensityMap(intensityFeature, 16, (640,480))
 # calculate color conspicuity
 conspicuityColor = conspicuityColorMap(colorFeature, 16, (640,480))
 # calculate edge conspicuity
-"""
 conspicuityEdge = conspicuityEdgeMap(edgeFeature, 16, (640,480))
+# calculate optical flow conspicuity
+conspicuityOF = conspicuityOFMap(OFFeature, 16, (640,480))
+# calculate flicker conspicuity
+conspicuityFlicker = conspicuityFlickerMap(flickerFeature, 16, (640,480))
