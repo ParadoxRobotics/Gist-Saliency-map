@@ -283,6 +283,28 @@ def conspicuityFlickerMap(flickerFeature, stepSize, inputSize):
     conspicuityFlicker = sum(ConsFlicker)
     return conspicuityFlicker
 
+def saliencyBinarization(saliency, th):
+    # convert channel scale
+    saliency8bit = np.uint8(saliency*255)
+    thresh, binSaliency = cv2.threshold(saliency8bit, thresh=th, maxval=255, type=cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+    return binSaliency
+
+# compute grabcut given saleincy and the main image
+def grabCutSaliency(img, saliency, th, iter):
+    # saliency binarization
+    binSaliency = saliencyBinarization(saliency, th)
+    # perform GrabCut
+    img = img.copy()
+    mask =  np.where((binSaliency!=0), cv2.GC_PR_FGD, cv2.GC_PR_BGD).astype('uint8')
+    background = np.zeros((1,65),np.float64)
+    foreground = np.zeros((1,65),np.float64)
+    rect = (0,0,1,1)
+    cv2.grabCut(img, mask=mask, rect=rect, bgdModel=background, fgdModel=foreground, iterCount=iter, mode=cv2.GC_INIT_WITH_MASK)
+    # post-processing
+    outMask = np.where((mask==cv2.GC_FGD) + (mask==cv2.GC_PR_FGD), 255, 0).astype('uint8')
+    output = cv2.bitwise_and(img, img, mask=outMask)
+    return output
+
 # Gabor filter th = [0°,45°,90°,135°]
 GaborKernel_0 = [\
     [ 1.85212E-06, 1.28181E-05, -0.000350433, -0.000136537, 0.002010422, -0.000136537, -0.000350433, 1.28181E-05, 1.85212E-06 ],\
@@ -343,15 +365,34 @@ colorFeature = colorMap(current_img)
 edgeFeature = gaborMap(current_img, filters)
 OFFeature = OpticalFlowMap(last_img, current_img)
 flickerFeature = flickerMap(last_img, current_img)
+# colculate gist of the feature pyramids
+gistIntensity = gistExtractionIntensity(intensityFeature)
+gistColor = gistExtractionColor(colorFeature)
+gistEdge = gistExtractionEdge(edgeFeature)
+gistOF = gistExtractionOF(OFFeature)
+gistFlicker = gistExtractionFlicker(flickerFeature)
 # calculate conspicuity map
 conspicuityIntensity = conspicuityIntensityMap(intensityFeature, 16, (640,480))
 conspicuityColor = conspicuityColorMap(colorFeature, 16, (640,480))
 conspicuityEdge = conspicuityEdgeMap(edgeFeature, 16, (640,480))
 conspicuityOF = conspicuityOFMap(OFFeature, 16, (640,480))
 conspicuityFlicker = conspicuityFlickerMap(flickerFeature, 16, (640,480))
-# colculate gist of the feature pyramid
-gistIntensity = gistExtractionIntensity(intensityFeature)
-gistColor = gistExtractionColor(colorFeature)
-gistEdge = gistExtractionEdge(edgeFeature)
-gistOF = gistExtractionOF(OFFeature)
-gistFlicker = gistExtractionFlicker(flickerFeature)
+# compute weighted map given conspicuity map
+WI = 0.30
+WC = 0.10
+WE = 0.40
+WO = 0.10
+WF = 0.10
+weightMap = WI*conspicuityIntensity + WC*conspicuityColor + WE*conspicuityEdge + WO*conspicuityOF + WF*conspicuityFlicker
+# normalize the weightMap
+normSaliency = valueNorm(weightMap)
+saliency = normSaliency.astype(np.float32)
+
+plt.imshow(cv2.cvtColor(current_img, cv2.COLOR_BGR2RGB))
+plt.show()
+
+plt.imshow(saliency)
+plt.show()
+
+plt.imshow(grabCutSaliency(cv2.cvtColor(current_img, cv2.COLOR_BGR2RGB), saliency, 0, 1))
+plt.show()
