@@ -86,23 +86,17 @@ def colorMap(img):
     # convert image to RGB and split channel
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     R, G, B = cv2.split(img)
-    # calculate RGB max
-    maxRGB = cv2.max(B, cv2.max(R, G))
-    maxRGB = maxRGB.astype(np.float32)
-    # normalize to avoid 0 division
-    maxRGB[maxRGB <= 0] = 0.01
-    # calculate Red/Green map
-    RG = (R-G)/maxRGB
-    # calculate Blue/Yellow map
-    Y = cv2.min(R, G)
-    BY = (B - Y)/maxRGB
-    # set nagative values to 0
-    RG[RG < 0] = 0
-    BY[BY < 0] = 0
+    # compute channel R, G, B, Y
+    CR = R-(G+B)/2
+    CG = G-(R+B)/2
+    CB = B-(R+G)/2
+    CY = (R+G)/2-np.abs(R-G)/2-B
     # create a gaussian pyramid with (RG,BY) and perform CSD
-    RGPyr = gaussianImagePyramid(RG)
-    BYPyr = gaussianImagePyramid(BY)
-    colorFeature = [CenterSurroundDiff(RGPyr), CenterSurroundDiff(BYPyr)]
+    RPyr = gaussianImagePyramid(CR)
+    GPyr = gaussianImagePyramid(CG)
+    BPyr = gaussianImagePyramid(CB)
+    YPyr = gaussianImagePyramid(CY)
+    colorFeature = [CenterSurroundDiff(RPyr), CenterSurroundDiff(GPyr), CenterSurroundDiff(BPyr), CenterSurroundDiff(YPyr)]
     return colorFeature
 
 # get gabor filter map
@@ -177,7 +171,7 @@ def gistExtractionIntensity(intensityFeature):
 # get color gist
 def gistExtractionColor(colorFeature):
     gistColor = []
-    for cm in range(0,2):
+    for cm in range(0,4):
         gistColorMap = []
         for fm in range(0, 6):
             gistMap = []
@@ -248,12 +242,15 @@ def conspicuityIntensityMap(intensityFeature, stepSize, inputSize):
 # get color conspicuity
 def conspicuityColorMap(colorFeature, stepSize, inputSize):
     # calculate conspicuity for RG and BY feature pyramid
-    constRG = ApplySaliencyNorm(colorFeature[0], stepSize, inputSize)
-    conspicuityRG = sum(constRG)
-    constBy = ApplySaliencyNorm(colorFeature[1], stepSize, inputSize)
-    conspicuityBy = sum(constBy)
-    # merge the 2 conspicuity map
-    return conspicuityRG + conspicuityBy
+    constR = ApplySaliencyNorm(colorFeature[0], stepSize, inputSize)
+    conspicuityR = sum(constR)
+    constG = ApplySaliencyNorm(colorFeature[1], stepSize, inputSize)
+    conspicuityG = sum(constG)
+    constB = ApplySaliencyNorm(colorFeature[2], stepSize, inputSize)
+    conspicuityB = sum(constB)
+    constY = ApplySaliencyNorm(colorFeature[3], stepSize, inputSize)
+    conspicuityY = sum(constY)
+    return conspicuityR+conspicuityG+conspicuityB+conspicuityY
 
 # get edge conspicuity
 def conspicuityEdgeMap(edgeFeature, stepSize, inputSize):
@@ -381,7 +378,7 @@ conspicuityOF = conspicuityOFMap(OFFeature, 16, (width,height))
 conspicuityFlicker = conspicuityFlickerMap(flickerFeature, 16, (width,height))
 # compute weighted map given conspicuity map
 WI = 0.10
-WC = 0.60
+WC = 0.10
 WE = 0.10
 WO = 0.10
 WF = 0.10
