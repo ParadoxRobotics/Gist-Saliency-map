@@ -3,7 +3,6 @@
 
 import numpy as np
 import cv2
-from scipy.ndimage.filters import maximum_filter
 from matplotlib import pyplot as plt
 from matplotlib import pyplot
 
