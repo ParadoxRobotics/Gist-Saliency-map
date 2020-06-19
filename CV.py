@@ -48,10 +48,11 @@ def LocalAvgMaxima(featureMap, stepSize):
     nbLoc = 0
     locMeanMax = 0
     # iterate over the whole feature map
-    for i in range(0, FMHeight-stepSize, FMHeight):
-        for j in range(0, FMWidth-stepSize, FMWidth):
+    for i in range(0, stepSize):
+        for j in range(0, stepSize):
             # get local image patch
-            localPatch = featureMap[i:i+stepSize, j:j+stepSize]
+            localPatch = featureMap[int(i*FMWidth/stepSize):int(i*FMWidth/stepSize + FMWidth/stepSize), \
+            int(j*FMHeight/stepSize):int(j*FMHeight/stepSize + FMHeight/stepSize)]
             # calculate local min/max value in the local patch
             minVal, maxVal, minLoc, maxLoc = cv2.minMaxLoc(localPatch)
             locMeanMax += maxVal
@@ -352,12 +353,13 @@ GaborKernel_135 = [\
 
 # filter bank
 filters = [np.array(GaborKernel_0), np.array(GaborKernel_45), np.array(GaborKernel_90), np.array(GaborKernel_135)]
-
+height = 240
+width = 320
 # read images
 current_img = cv2.imread('im1.png')
-current_img = cv2.resize(current_img, (640,480))
+current_img = cv2.resize(current_img, (width,height))
 last_img = cv2.imread('im0.png')
-last_img = cv2.resize(last_img, (640,480))
+last_img = cv2.resize(last_img, (width,height))
 # extract feature pyramid + CenterSurroundDiff
 intensityFeature = intensityMap(current_img)
 colorFeature = colorMap(current_img)
@@ -371,15 +373,15 @@ gistEdge = gistExtractionEdge(edgeFeature)
 gistOF = gistExtractionOF(OFFeature)
 gistFlicker = gistExtractionFlicker(flickerFeature)
 # calculate conspicuity map
-conspicuityIntensity = conspicuityIntensityMap(intensityFeature, 16, (640,480))
-conspicuityColor = conspicuityColorMap(colorFeature, 16, (640,480))
-conspicuityEdge = conspicuityEdgeMap(edgeFeature, 16, (640,480))
-conspicuityOF = conspicuityOFMap(OFFeature, 16, (640,480))
-conspicuityFlicker = conspicuityFlickerMap(flickerFeature, 16, (640,480))
+conspicuityIntensity = conspicuityIntensityMap(intensityFeature, 16, (width,height))
+conspicuityColor = conspicuityColorMap(colorFeature, 16, (width,height))
+conspicuityEdge = conspicuityEdgeMap(edgeFeature, 16, (width,height))
+conspicuityOF = conspicuityOFMap(OFFeature, 16, (width,height))
+conspicuityFlicker = conspicuityFlickerMap(flickerFeature, 16, (width,height))
 # compute weighted map given conspicuity map
-WI = 0.30
+WI = 0.10
 WC = 0.10
-WE = 0.40
+WE = 0.10
 WO = 0.10
 WF = 0.10
 weightMap = WI*conspicuityIntensity + WC*conspicuityColor + WE*conspicuityEdge + WO*conspicuityOF + WF*conspicuityFlicker
