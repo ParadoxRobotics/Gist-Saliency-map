@@ -353,8 +353,8 @@ GaborKernel_135 = [\
 
 # filter bank
 filters = [np.array(GaborKernel_0), np.array(GaborKernel_45), np.array(GaborKernel_90), np.array(GaborKernel_135)]
-height = 240
-width = 320
+height = 480
+width = 640
 # read images
 current_img = cv2.imread('im1.png')
 current_img = cv2.resize(current_img, (width,height))
@@ -379,11 +379,11 @@ conspicuityEdge = conspicuityEdgeMap(edgeFeature, 16, (width,height))
 conspicuityOF = conspicuityOFMap(OFFeature, 16, (width,height))
 conspicuityFlicker = conspicuityFlickerMap(flickerFeature, 16, (width,height))
 # compute weighted map given conspicuity map
-WI = 0.10
-WC = 0.10
-WE = 0.10
-WO = 0.10
-WF = 0.10
+WI = 0.20
+WC = 0.20
+WE = 0.20
+WO = 0.20
+WF = 0.20
 weightMap = WI*conspicuityIntensity + WC*conspicuityColor + WE*conspicuityEdge + WO*conspicuityOF + WF*conspicuityFlicker
 # normalize the weightMap
 normSaliency = valueNorm(weightMap)
@@ -395,5 +395,8 @@ plt.show()
 plt.imshow(saliency)
 plt.show()
 
-plt.imshow(grabCutSaliency(cv2.cvtColor(current_img, cv2.COLOR_BGR2RGB), saliency, 0, 1))
+plt.imshow(saliencyBinarization(saliency, 210))
+plt.show()
+
+plt.imshow(grabCutSaliency(cv2.cvtColor(current_img, cv2.COLOR_BGR2RGB), saliency, 210, 1))
 plt.show()
