@@ -88,8 +88,9 @@ def colorMap(img):
     R, G, B = cv2.split(img)
     # calculate RGB max
     maxRGB = cv2.max(B, cv2.max(R, G))
+    maxRGB = maxRGB.astype(np.float32)
     # normalize to avoid 0 division
-    maxRGB[maxRGB <= 0] = 0.0001
+    maxRGB[maxRGB <= 0] = 0.01
     # calculate Red/Green map
     RG = (R-G)/maxRGB
     # calculate Blue/Yellow map
@@ -353,12 +354,12 @@ GaborKernel_135 = [\
 
 # filter bank
 filters = [np.array(GaborKernel_0), np.array(GaborKernel_45), np.array(GaborKernel_90), np.array(GaborKernel_135)]
-height = 480
-width = 640
+height = 240
+width = 240
 # read images
-current_img = cv2.imread('im1.png')
+current_img = cv2.imread('bar.png')
 current_img = cv2.resize(current_img, (width,height))
-last_img = cv2.imread('im0.png')
+last_img = cv2.imread('bar.png')
 last_img = cv2.resize(last_img, (width,height))
 # extract feature pyramid + CenterSurroundDiff
 intensityFeature = intensityMap(current_img)
@@ -379,11 +380,11 @@ conspicuityEdge = conspicuityEdgeMap(edgeFeature, 16, (width,height))
 conspicuityOF = conspicuityOFMap(OFFeature, 16, (width,height))
 conspicuityFlicker = conspicuityFlickerMap(flickerFeature, 16, (width,height))
 # compute weighted map given conspicuity map
-WI = 0.20
-WC = 0.20
-WE = 0.20
-WO = 0.20
-WF = 0.20
+WI = 0.10
+WC = 0.60
+WE = 0.10
+WO = 0.10
+WF = 0.10
 weightMap = WI*conspicuityIntensity + WC*conspicuityColor + WE*conspicuityEdge + WO*conspicuityOF + WF*conspicuityFlicker
 # normalize the weightMap
 normSaliency = valueNorm(weightMap)
